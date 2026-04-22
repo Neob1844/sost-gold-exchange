@@ -1,0 +1,18 @@
+[Unit]
+Description=SOST Alpha Watcher Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sost
+WorkingDirectory=/home/sost/SOST/sost-gold-exchange-private
+ExecStart=/usr/bin/python3 -m src.services.watcher_service
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

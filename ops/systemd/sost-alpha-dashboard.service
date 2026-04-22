@@ -1,0 +1,18 @@
+[Unit]
+Description=SOST Alpha Dashboard API
+After=sost-alpha-watcher.service
+Wants=sost-alpha-watcher.service
+
+[Service]
+Type=simple
+User=sost
+WorkingDirectory=/home/sost/SOST/sost-gold-exchange-private
+ExecStart=/usr/bin/python3 -m src.operator.dashboard_api
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

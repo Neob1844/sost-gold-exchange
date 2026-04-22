@@ -1,0 +1,25 @@
+{
+  "mode": "limited-public-alpha",
+  "limits": {
+    "max_concurrent_deals": 5,
+    "max_position_size_sost": 50000000000,
+    "max_gold_amount_mg": 311035,
+    "max_deal_value_usd_equiv": 5000,
+    "operator_approval_required": true,
+    "mainnet_enabled": false,
+    "reward_right_transfers_enabled": false,
+    "public_api_exposed": false,
+    "max_participants": 3
+  },
+  "restrictions": {
+    "only_model_b": true,
+    "only_xaut": true,
+    "min_lock_duration_days": 28,
+    "max_lock_duration_days": 90
+  },
+  "operator": {
+    "manual_settlement_confirmation": true,
+    "manual_refund_confirmation": true,
+    "audit_log_required": true
+  }
+}

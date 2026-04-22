@@ -1,0 +1,18 @@
+{
+  "mode": "mainnet-pilot",
+  "ethereum": {
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY",
+    "chain_id": 1,
+    "escrow_address": "0x_MAINNET_ESCROW_TBD",
+    "xaut_address": "0x68749665FF8D2d112Fa859AA293F07A622782F38",
+    "paxg_address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78",
+    "confirmations": 12,
+    "poll_interval_seconds": 30
+  },
+  "pilot": {
+    "max_amount_oz": 0.5,
+    "max_duration_days": 28,
+    "max_participants": 1,
+    "operator_manual_confirmation": true
+  }
+}
