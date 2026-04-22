@@ -7,3 +7,7 @@ node_modules/
 dist/
 .vscode/
 .idea/
+contracts/ethereum/.env
+configs/live_alpha.local.json
+contracts/ethereum/out/
+contracts/ethereum/cache/

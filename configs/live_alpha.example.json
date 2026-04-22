@@ -1,0 +1,34 @@
+{
+  "mode": "live-alpha",
+  "ethereum": {
+    "rpc_url": "https://rpc.sepolia.org",
+    "chain_id": 11155111,
+    "escrow_address": "0x0000000000000000000000000000000000000000",
+    "xaut_address": "0x0000000000000000000000000000000000000000",
+    "paxg_address": "0x0000000000000000000000000000000000000000",
+    "confirmations": 6,
+    "poll_interval": 15
+  },
+  "sost": {
+    "rpc_url": "http://127.0.0.1:18232",
+    "rpc_user": "sost",
+    "rpc_pass": "",
+    "poll_interval": 10
+  },
+  "demo": {
+    "pair": "SOST/XAUT",
+    "amount_sost": 10000000000,
+    "amount_gold": 50000000000000000,
+    "maker_sost_addr": "sost1maker1234567890abcdef1234567890abcdef12",
+    "taker_sost_addr": "sost1taker1234567890abcdef1234567890abcdef12",
+    "maker_eth_addr": "0xMakerEthAddress1234567890abcdef12345678",
+    "taker_eth_addr": "0xTakerEthAddress1234567890abcdef12345678",
+    "expiry_seconds": 3600,
+    "lock_duration_days": 90
+  },
+  "data": {
+    "deals_path": "data/deals.json",
+    "positions_path": "data/positions.json",
+    "audit_dir": "data/audit"
+  }
+}

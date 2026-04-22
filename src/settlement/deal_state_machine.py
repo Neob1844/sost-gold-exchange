@@ -149,13 +149,16 @@ class DealStore:
 
     def create(self, **kwargs) -> Deal:
         ts = time.time()
-        deal_id = Deal.generate_id(
-            kwargs.get("maker_sost_addr", ""),
-            kwargs.get("taker_sost_addr", ""),
-            ts,
-        )
-        deal = Deal(deal_id=deal_id, created_at=ts, **kwargs)
-        self._deals[deal_id] = deal
+        if "deal_id" not in kwargs:
+            kwargs["deal_id"] = Deal.generate_id(
+                kwargs.get("maker_sost_addr", ""),
+                kwargs.get("taker_sost_addr", ""),
+                ts,
+            )
+        if "created_at" not in kwargs:
+            kwargs["created_at"] = ts
+        deal = Deal(**kwargs)
+        self._deals[deal.deal_id] = deal
         return deal
 
     def get(self, deal_id: str) -> Optional[Deal]:
