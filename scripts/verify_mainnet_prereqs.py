@@ -13,6 +13,7 @@ Usage:
 import argparse
 import json
 import os
+import subprocess
 import sys
 import urllib.request
 import urllib.error
@@ -164,6 +165,62 @@ def check_sost_node():
         return False, f"SOST RPC error: {e}"
 
 
+def check_sepolia_lifecycle(data_dir):
+    """Check that position registry has at least 1 completed Sepolia lifecycle."""
+    registry_path = os.path.join(data_dir, "positions.json")
+    if not os.path.exists(registry_path):
+        return False, "No positions.json found — no lifecycle completed"
+    try:
+        with open(registry_path) as f:
+            data = json.load(f)
+        positions = data if isinstance(data, list) else data.get("positions", [])
+        redeemed = [p for p in positions if p.get("status") in ("REDEEMED", "redeemed")]
+        if len(redeemed) == 0:
+            return False, f"0 REDEEMED positions found ({len(positions)} total)"
+        return True, f"{len(redeemed)} completed lifecycle(s) in registry"
+    except (json.JSONDecodeError, IOError, KeyError) as e:
+        return False, f"Cannot parse registry: {e}"
+
+
+def check_tests_passing():
+    """Check that Python test suite passes."""
+    test_dir = os.path.join(PROJECT_ROOT, "tests")
+    if not os.path.isdir(test_dir):
+        return False, "tests/ directory not found"
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", test_dir, "-q", "--tb=no"],
+            capture_output=True, text=True, timeout=120,
+            cwd=PROJECT_ROOT,
+        )
+        # Extract summary line (e.g. "26 passed")
+        last_lines = result.stdout.strip().split("\n")[-2:]
+        summary = " | ".join(ln.strip() for ln in last_lines if ln.strip())
+        if result.returncode == 0:
+            return True, f"All tests passed: {summary}"
+        return False, f"Tests failed (exit {result.returncode}): {summary}"
+    except subprocess.TimeoutExpired:
+        return False, "Test suite timed out (>120s)"
+    except FileNotFoundError:
+        return False, "pytest not found — install with: pip install pytest"
+
+
+def check_mainnet_config_exists():
+    """Check that configs/mainnet_model_b.example.json exists."""
+    config_path = os.path.join(PROJECT_ROOT, "configs", "mainnet_model_b.example.json")
+    if os.path.exists(config_path):
+        return True, f"Found: {config_path}"
+    return False, "configs/mainnet_model_b.example.json not found"
+
+
+def check_go_no_go_document():
+    """Check that the Go/No-Go decision document exists."""
+    doc_path = os.path.join(PROJECT_ROOT, "docs", "GO_NO_GO_MODEL_B_MAINNET.md")
+    if os.path.exists(doc_path):
+        return True, f"Found: {doc_path}"
+    return False, "docs/GO_NO_GO_MODEL_B_MAINNET.md not found"
+
+
 def main():
     parser = argparse.ArgumentParser(description="SOST — Verify Mainnet Prerequisites")
     parser.add_argument("--config",
@@ -175,6 +232,7 @@ def main():
 
     all_pass = True
     results = []
+    not_ready_reasons = []
 
     # 1. Config
     ok, msg = check_config_exists(args.config)
@@ -210,20 +268,44 @@ def main():
     ok, msg = check_audit_log(data_dir)
     results.append(("Audit log", ok, msg))
 
+    # 7. Sepolia lifecycle completion
+    ok, msg = check_sepolia_lifecycle(data_dir)
+    results.append(("Sepolia lifecycle", ok, msg))
+
+    # 8. Test suites
+    ok, msg = check_tests_passing()
+    results.append(("Test suites", ok, msg))
+
+    # 9. Mainnet config template
+    ok, msg = check_mainnet_config_exists()
+    results.append(("Mainnet config", ok, msg))
+
+    # 10. Go/No-Go document
+    ok, msg = check_go_no_go_document()
+    results.append(("Go/No-Go doc", ok, msg))
+
     # Print results
+    print(f"  {C}{'Check':<22s}{'Result':<8s}{'Details'}{X}")
+    print(f"  {D}{'-' * 70}{X}")
     for name, ok, msg in results:
         status = PASS if ok else FAIL
         if not ok:
             all_pass = False
+            not_ready_reasons.append(f"{name}: {msg}")
         print(f"  {status}  {W}{name:20s}{X}  {D}{msg}{X}")
 
     print()
     if all_pass:
-        print(f"  {G}{B}ALL CHECKS PASSED{X} — ready for mainnet operations\n")
+        print(f"  {G}{B}READY{X} — all {len(results)} checks passed, ready for mainnet operations\n")
         sys.exit(0)
     else:
+        passed = sum(1 for _, ok, _ in results if ok)
         failed = sum(1 for _, ok, _ in results if not ok)
-        print(f"  {R}{B}{failed} CHECK(S) FAILED{X} — resolve before proceeding\n")
+        print(f"  {R}{B}NOT READY{X} — {passed} passed, {failed} failed\n")
+        print(f"  {Y}Reasons:{X}")
+        for reason in not_ready_reasons:
+            print(f"    {R}-{X} {reason}")
+        print()
         sys.exit(1)
 
 

@@ -6,6 +6,33 @@
 - Single participant (foundation)
 - Small amount (0.1-0.5 oz)
 
+## Sepolia Lifecycle Completion
+- [ ] Full deposit-lock-mature-withdraw cycle completed on Sepolia
+- [ ] Refund path tested on Sepolia (expired deal -> depositor withdraws)
+- [ ] Position tracked from ACTIVE through MATURED to REDEEMED in registry
+- [ ] Watcher service detected all on-chain events without manual intervention
+- [ ] Audit log contains complete record of Sepolia lifecycle
+
+## Relay / API Verification
+- [ ] Relay endpoint reachable and routing trade intents
+- [ ] Dashboard API returns correct position data
+- [ ] Health monitor script runs without errors
+- [ ] Signed offer -> accept -> deal flow tested end-to-end via relay
+
+## Position Lifecycle Tracking Verification
+- [ ] Position registry correctly records deposit metadata
+- [ ] Position status transitions match on-chain state (ACTIVE -> MATURED -> REDEEMED)
+- [ ] Position pricing returns correct value based on gold price and time
+- [ ] Position transfer works (change owner, verify new owner can withdraw)
+- [ ] Reward right split works correctly
+
+## Go/No-Go Review
+- [ ] GO_NO_GO_MODEL_B_MAINNET.md reviewed by operator and foundation
+- [ ] All GO conditions satisfied (technical, operational, financial, communication)
+- [ ] No NO-GO conditions triggered
+- [ ] verify_mainnet_prereqs.py returns all-pass
+- [ ] Sign-off recorded with date and decision
+
 ## Pre-deployment
 - [ ] SOSTEscrow audited externally (or risk accepted for pilot)
 - [ ] SOSTEscrow deployed on Ethereum mainnet

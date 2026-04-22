@@ -1,0 +1,25 @@
+{
+  "mode": "limited-user-alpha",
+  "participants": {
+    "allowlist": [
+      {"name": "foundation", "sost_addr": "sost1a8eae8f80fedd8d86187db628a0d81e0367f76de", "role": "operator"},
+      {"name": "test_seller", "sost_addr": "sost1seller_alpha_test_001", "role": "seller"},
+      {"name": "test_buyer", "sost_addr": "sost1buyer_alpha_test_001", "role": "buyer"}
+    ],
+    "max_participants": 3
+  },
+  "limits": {
+    "max_concurrent_deals": 3,
+    "max_position_size_sost": 10000000000,
+    "max_gold_amount_mg": 155517,
+    "max_deal_value_usd_equiv": 2000,
+    "operator_approval_required": true,
+    "max_reward_splits_per_position": 1
+  },
+  "restrictions": {
+    "only_model_b": true,
+    "only_xaut": true,
+    "min_lock_duration_days": 28,
+    "max_lock_duration_days": 90
+  }
+}

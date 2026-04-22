@@ -9,12 +9,17 @@ Usage:
   python3 -m src.operator.dashboard_api --port 8080
 
 Endpoints:
-  GET /health           — service health with component status
-  GET /deals            — list all deals
-  GET /deals/<deal_id>  — single deal with history
-  GET /positions        — list all positions
-  GET /audit/<deal_id>  — audit entries for a deal
-  GET /sepolia          — deployed contract addresses and deposit status
+  GET /health                  — service health with component status
+  GET /deals                   — list all deals
+  GET /deals/<deal_id>         — single deal with history
+  GET /deals/live              — non-terminal deals only
+  GET /positions               — list all positions
+  GET /positions/<id>/lifecycle — lifecycle stage and timing for a position
+  GET /audit/<deal_id>         — audit entries for a deal
+  GET /sepolia                 — deployed contract addresses and deposit status
+  GET /alpha/status            — alpha mode info, limits, participant count
+  GET /relay/status            — relay health (placeholder)
+  GET /watchers/status         — watcher poll times and error counts
 """
 
 import json
@@ -230,6 +235,142 @@ def list_positions():
         d["pct_complete"] = round(pos.pct_complete(), 2)
         result.append(d)
     return jsonify(result)
+
+
+@app.route("/deals/live")
+def live_deals():
+    store = _load_deals()
+    result = []
+    for deal in store._deals.values():
+        if not deal.is_terminal():
+            d = deal.to_dict()
+            d["is_terminal"] = False
+            d["is_expired"] = deal.is_expired()
+            result.append(d)
+    return jsonify(result)
+
+
+@app.route("/positions/<position_id>/lifecycle")
+def position_lifecycle(position_id):
+    registry = _load_positions()
+    pos = registry.get(position_id)
+
+    # Try prefix match
+    if not pos:
+        matches = [(pid, p) for pid, p in registry._positions.items()
+                    if pid.startswith(position_id)]
+        if len(matches) == 1:
+            pos = matches[0][1]
+
+    if not pos:
+        abort(404, description=f"Position '{position_id}' not found")
+
+    # Determine lifecycle stage
+    status = pos.status.value
+    if status == "REDEEMED":
+        stage = "REDEEMED"
+    elif status == "SLASHED":
+        stage = "SLASHED"
+    elif status == "MATURED" or pos.is_matured():
+        stage = "MATURE"
+    elif pos.time_remaining() < 7 * 86400:
+        stage = "NEARING_EXPIRY"
+    else:
+        stage = "ACTIVE"
+
+    return jsonify({
+        "position_id": pos.position_id,
+        "stage": stage,
+        "status": status,
+        "time_remaining": pos.time_remaining(),
+        "pct_complete": round(pos.pct_complete(), 2),
+        "start_time": pos.start_time,
+        "expiry_time": pos.expiry_time,
+        "is_matured": pos.is_matured() or status == "MATURED",
+        "reward_total_sost": pos.reward_total_sost,
+        "reward_claimed_sost": pos.reward_claimed_sost,
+        "reward_remaining_sost": pos.reward_remaining(),
+    })
+
+
+@app.route("/alpha/status")
+def alpha_status():
+    config = _load_exchange_config()
+    mode = config.get("mode", "unknown")
+
+    # Load alpha limits
+    alpha_path = os.path.join(PROJECT_ROOT, "configs", "limited_public_alpha.json")
+    limits = {}
+    if os.path.exists(alpha_path):
+        with open(alpha_path) as f:
+            alpha_cfg = json.load(f)
+        limits = alpha_cfg.get("limits", {})
+
+    # Count participants from positions
+    registry = _load_positions()
+    owners = set(p.owner for p in registry._positions.values())
+
+    return jsonify({
+        "mode": mode,
+        "is_alpha": "alpha" in mode.lower(),
+        "limits": limits,
+        "participant_count": len(owners),
+        "position_count": len(registry._positions),
+        "timestamp": time.time(),
+    })
+
+
+@app.route("/relay/status")
+def relay_status():
+    health_monitor = app.config.get("health_monitor")
+    if health_monitor:
+        health_data = health_monitor.get_health()
+        relay_comp = health_data.get("components", {}).get("relay")
+        if relay_comp:
+            return jsonify({
+                "running": True,
+                "last_poll": relay_comp.get("last_poll"),
+                "age_seconds": relay_comp.get("age_seconds"),
+                "stale": relay_comp.get("stale", False),
+                "errors": relay_comp.get("errors", 0),
+            })
+    return jsonify({
+        "running": False,
+        "message": "Relay not registered with health monitor",
+    })
+
+
+@app.route("/watchers/status")
+def watchers_status():
+    health_monitor = app.config.get("health_monitor")
+    if not health_monitor:
+        return jsonify({
+            "status": "unknown",
+            "message": "Health monitor not available",
+        })
+
+    health_data = health_monitor.get_health()
+    components = health_data.get("components", {})
+
+    watcher_names = ["eth_watcher", "sost_watcher"]
+    watchers = {}
+    for name in watcher_names:
+        comp = components.get(name)
+        if comp:
+            watchers[name] = {
+                "last_poll": comp.get("last_poll"),
+                "age_seconds": comp.get("age_seconds"),
+                "expected_interval": comp.get("expected_interval"),
+                "stale": comp.get("stale", False),
+                "errors": comp.get("errors", 0),
+            }
+        else:
+            watchers[name] = {"registered": False}
+
+    return jsonify({
+        "status": health_data.get("status", "unknown"),
+        "watchers": watchers,
+    })
 
 
 @app.route("/audit/<deal_id>")
