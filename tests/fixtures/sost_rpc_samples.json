@@ -1,0 +1,70 @@
+[
+  {
+    "description": "getinfo response",
+    "method": "getinfo",
+    "result": {
+      "version": 4020100,
+      "protocolversion": 170017,
+      "blocks": 142857,
+      "timeoffset": 0,
+      "connections": 8,
+      "proxy": "",
+      "difficulty": 1.234567,
+      "testnet": false,
+      "relayfee": 0.00000100,
+      "errors": ""
+    }
+  },
+  {
+    "description": "getaddressutxos with balance",
+    "method": "getaddressutxos",
+    "params": ["sost1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"],
+    "result": [
+      {
+        "txid": "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0ab",
+        "outputIndex": 0,
+        "address": "sost1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+        "script": "76a914bef5a2f9a56a94aab12459f72ad9cf8cf19c7bbe88ac",
+        "amount": 25000000000,
+        "height": 142800
+      }
+    ]
+  },
+  {
+    "description": "getaddressutxos empty",
+    "method": "getaddressutxos",
+    "params": ["sost1empty0000000000000000000000000000000000"],
+    "result": []
+  },
+  {
+    "description": "getaddressutxos multiple UTXOs for same address",
+    "method": "getaddressutxos",
+    "params": ["sost1grfm9nmmxau3la5dkyhe3w5e4pc3n4zmnv55v0g"],
+    "result": [
+      {
+        "txid": "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d",
+        "outputIndex": 0,
+        "address": "sost1grfm9nmmxau3la5dkyhe3w5e4pc3n4zmnv55v0g",
+        "script": "76a914c398efa9c392ba6013c5e04ee56263f8bdd0e48988ac",
+        "amount": 10000000000,
+        "height": 142750
+      },
+      {
+        "txid": "7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+        "outputIndex": 1,
+        "address": "sost1grfm9nmmxau3la5dkyhe3w5e4pc3n4zmnv55v0g",
+        "script": "76a914c398efa9c392ba6013c5e04ee56263f8bdd0e48988ac",
+        "amount": 5000000000,
+        "height": 142810
+      },
+      {
+        "txid": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+        "outputIndex": 0,
+        "address": "sost1grfm9nmmxau3la5dkyhe3w5e4pc3n4zmnv55v0g",
+        "script": "76a914c398efa9c392ba6013c5e04ee56263f8bdd0e48988ac",
+        "amount": 800000000,
+        "height": 142855
+      }
+    ]
+  }
+]
