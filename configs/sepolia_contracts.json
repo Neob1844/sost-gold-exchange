@@ -1,10 +1,10 @@
 {
   "chain": "sepolia",
   "chain_id": 11155111,
-  "deployed_at_block": 0,
-  "deployed_at": "",
-  "mock_xaut": "0x0000000000000000000000000000000000000000",
-  "mock_paxg": "0x0000000000000000000000000000000000000000",
-  "escrow": "0x0000000000000000000000000000000000000000",
-  "deployer": ""
+  "deployed_at_block": 10709651,
+  "deployed_at": "2026-04-22T11:17:26Z",
+  "mock_xaut": "0x38ca34c6b7b3772b44212d6c2597fd91a6f944d0",
+  "mock_paxg": "0x754a7d020d559edd60848450c563303262cadec7",
+  "escrow": "0x01eaab645da10e79c5bae1c38d884b4d1a68f113",
+  "deployer": "0x5c02284f3358d5518c9ae7ba5bdd4cc8efd40e9a"
 }
