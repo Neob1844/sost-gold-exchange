@@ -9,11 +9,12 @@ Usage:
   python3 -m src.operator.dashboard_api --port 8080
 
 Endpoints:
-  GET /health           — status, deal count, position count
+  GET /health           — service health with component status
   GET /deals            — list all deals
   GET /deals/<deal_id>  — single deal with history
   GET /positions        — list all positions
   GET /audit/<deal_id>  — audit entries for a deal
+  GET /sepolia          — deployed contract addresses and deposit status
 """
 
 import json
@@ -34,7 +35,7 @@ from src.positions.position_registry import PositionRegistry
 from src.operator.audit_log import AuditLog
 
 try:
-    from flask import Flask, jsonify, abort
+    from flask import Flask, jsonify, abort, request
 except ImportError:
     print("ERROR: Flask is required. Install with: pip install flask")
     sys.exit(1)
@@ -48,6 +49,33 @@ POSITIONS_PATH = os.path.join(PROJECT_ROOT, "data", "positions.json")
 AUDIT_DIR = os.path.join(PROJECT_ROOT, "data", "audit")
 
 app = Flask(__name__)
+
+
+# ── CORS ──
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+# ── Config loading ──
+
+def _load_exchange_config() -> dict:
+    """Load exchange config from app.config or from file."""
+    cfg = app.config.get("exchange_config")
+    if cfg:
+        return cfg
+    config_path = os.path.join(PROJECT_ROOT, "configs", "live_alpha.local.json")
+    if not os.path.exists(config_path):
+        config_path = os.path.join(PROJECT_ROOT, "configs", "live_alpha.example.json")
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            return json.load(f)
+    return {}
+
 
 # ── Stores (loaded on startup, refreshed per-request for simplicity) ──
 
@@ -83,13 +111,74 @@ def _load_audit():
 def health():
     deals = _load_deals()
     positions = _load_positions()
+
+    # Use health monitor if available (injected by start_alpha_service)
+    health_monitor = app.config.get("health_monitor")
+    if health_monitor:
+        monitor_data = health_monitor.get_health()
+    else:
+        monitor_data = {"status": "ok", "components": {}}
+
+    config = _load_exchange_config()
     return jsonify({
-        "status": "ok",
-        "mode": "alpha",
+        "status": monitor_data["status"],
+        "mode": config.get("mode", "alpha"),
         "deals": len(deals._deals),
         "positions": len(positions._positions),
+        "uptime_seconds": monitor_data.get("uptime_seconds"),
+        "components": monitor_data.get("components", {}),
         "timestamp": time.time(),
     })
+
+
+@app.route("/sepolia")
+def sepolia():
+    config = _load_exchange_config()
+    eth = config.get("ethereum", {})
+
+    result = {
+        "chain_id": eth.get("chain_id"),
+        "rpc_url": eth.get("rpc_url"),
+        "escrow_address": eth.get("escrow_address"),
+        "xaut_address": eth.get("xaut_address"),
+        "paxg_address": eth.get("paxg_address"),
+        "confirmations": eth.get("confirmations"),
+        "poll_interval_seconds": eth.get("poll_interval_seconds", eth.get("poll_interval")),
+    }
+
+    # Try to query deposit status from chain
+    rpc_url = eth.get("rpc_url")
+    escrow = eth.get("escrow_address")
+    if rpc_url and escrow:
+        try:
+            import urllib.request
+            # Query getDeposit(0) — selector 0x9a7c4b71
+            data = "0x9a7c4b71" + "0" * 64
+            payload = json.dumps({
+                "jsonrpc": "2.0", "id": 1,
+                "method": "eth_call",
+                "params": [{"to": escrow, "data": data}, "latest"],
+            }).encode()
+            req = urllib.request.Request(
+                rpc_url, data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                rpc_result = json.loads(resp.read())
+            hex_data = rpc_result.get("result", "0x")
+            if hex_data and len(hex_data) > 66:
+                depositor = "0x" + hex_data[26:66]
+                amount = int(hex_data[130:194], 16) if len(hex_data) >= 194 else 0
+                result["first_deposit"] = {
+                    "depositor": depositor,
+                    "amount_wei": amount,
+                }
+            else:
+                result["first_deposit"] = None
+        except Exception as e:
+            result["first_deposit"] = {"error": str(e)}
+
+    return jsonify(result)
 
 
 @app.route("/deals")
@@ -166,7 +255,13 @@ def main():
     parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
     parser.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("--config", default="", help="Config JSON path")
     args = parser.parse_args()
+
+    # Load config from file if provided
+    if args.config and os.path.exists(args.config):
+        with open(args.config) as f:
+            app.config["exchange_config"] = json.load(f)
 
     print(f"SOST Gold Exchange — Operator Dashboard")
     print(f"  Listening on http://{args.host}:{args.port}")
