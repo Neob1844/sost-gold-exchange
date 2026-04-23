@@ -11,7 +11,7 @@ import {SOSTEscrowV2} from "../SOSTEscrowV2.sol";
  * Deploys:
  *   1. MockERC20 "Mock XAUT" (6 decimals)  — simulates Tether Gold
  *   2. MockERC20 "Mock PAXG" (18 decimals) — simulates Paxos Gold
- *   3. SOSTEscrowV2(xaut, paxg)            — timelocked gold escrow with beneficiary support
+ *   3. SOSTEscrowV2(xaut, paxg, operator)   — timelocked gold escrow with beneficiary + operator
  *
  * Usage:
  *   source .env
@@ -35,9 +35,12 @@ contract DeploySepoliaV2 is Script {
         MockERC20 paxg = new MockERC20("Mock PAXG", "PAXG", 18);
         console.log("MockERC20 PAXG deployed at:", address(paxg));
 
-        // 3. Deploy SOSTEscrowV2 with the two mock token addresses
-        SOSTEscrowV2 escrow = new SOSTEscrowV2(address(xaut), address(paxg));
+        // 3. Deploy SOSTEscrowV2 with mock tokens and deployer as settlement operator
+        //    For alpha: deployer == operator. For mainnet: use a dedicated operator address.
+        address operator = msg.sender;
+        SOSTEscrowV2 escrow = new SOSTEscrowV2(address(xaut), address(paxg), operator);
         console.log("SOSTEscrowV2 deployed at:", address(escrow));
+        console.log("Settlement operator:", operator);
 
         vm.stopBroadcast();
 
@@ -48,6 +51,7 @@ contract DeploySepoliaV2 is Script {
         console.log("  XAUT:     ", address(xaut));
         console.log("  PAXG:     ", address(paxg));
         console.log("  EscrowV2: ", address(escrow));
+        console.log("  Operator: ", operator);
         console.log("========================================");
     }
 }

@@ -24,7 +24,7 @@ contract SOSTEscrowV2Test is Test {
     function setUp() public {
         xaut = new MockERC20("Tether Gold", "XAUT", 6);
         paxg = new MockERC20("Pax Gold", "PAXG", 18);
-        escrow = new SOSTEscrowV2(address(xaut), address(paxg));
+        escrow = new SOSTEscrowV2(address(xaut), address(paxg), address(0));
 
         // Fund alice
         xaut.mint(alice, 10 * ONE_XAUT);
@@ -94,9 +94,7 @@ contract SOSTEscrowV2Test is Test {
         uint256 id = escrow.deposit(address(xaut), ONE_XAUT, unlock);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(
-            SOSTEscrowV2.NotBeneficiary.selector, bob, alice
-        ));
+        vm.expectRevert(SOSTEscrowV2.NotAuthorizedToUpdateBeneficiary.selector);
         escrow.updateBeneficiary(id, charlie);
     }
 

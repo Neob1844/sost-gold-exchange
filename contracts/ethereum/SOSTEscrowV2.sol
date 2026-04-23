@@ -14,14 +14,17 @@ pragma solidity ^0.8.24;
 //   - NO pause function
 //   - NO emergency withdrawal
 //   - NO extension or modification of existing deposits
-//   - ONLY the current beneficiary can withdraw or reassign
+//   - ONLY the current beneficiary OR settlement operator can reassign
+//   - ONLY the current beneficiary can withdraw
 //   - ONLY after the timelock expires (for withdrawal)
+//   - Settlement operator is immutable, set at construction, cannot withdraw
 //   - Source code published and verified on block explorer
 //
 // Trust model:
 //   - The contract itself is trustless (immutable, no admin)
 //   - Whoever owns the principal economically can reassign the payout address
-//   - Only the currentBeneficiary can call updateBeneficiary or withdraw
+//   - currentBeneficiary or settlementOperator can call updateBeneficiary
+//   - Only the currentBeneficiary can call withdraw
 //   - The SOST reward payout is handled OFF-CHAIN by the watcher
 //
 // SOST Protocol — Copyright (c) 2026 SOST Protocol
@@ -48,6 +51,7 @@ contract SOSTEscrowV2 is ReentrancyGuard {
 
     address public immutable XAUT;
     address public immutable PAXG;
+    address public immutable settlementOperator;
 
     uint256 public constant MIN_LOCK_DURATION = 28 days;
     uint256 public constant MAX_LOCK_DURATION = 366 days;
@@ -98,15 +102,17 @@ contract SOSTEscrowV2 is ReentrancyGuard {
     error AlreadyWithdrawn(uint256 depositId);
     error ZeroAddress();
     error TransferFailed();
+    error NotAuthorizedToUpdateBeneficiary();
 
     // ---- Constructor ----
 
-    constructor(address _xaut, address _paxg) {
+    constructor(address _xaut, address _paxg, address _settlementOperator) {
         require(_xaut != address(0), "XAUT address cannot be zero");
         require(_paxg != address(0), "PAXG address cannot be zero");
         require(_xaut != _paxg, "XAUT and PAXG must be different");
         XAUT = _xaut;
         PAXG = _paxg;
+        settlementOperator = _settlementOperator; // address(0) disables operator
     }
 
     // ---- Core functions ----
@@ -141,18 +147,26 @@ contract SOSTEscrowV2 is ReentrancyGuard {
         return _deposit(token, amount, unlockTime, beneficiary);
     }
 
-    /// @notice Update the beneficiary of a deposit. ONLY callable by current beneficiary.
+    /// @notice Update the beneficiary of a deposit.
+    /// Callable by currentBeneficiary OR settlementOperator (if set).
     function updateBeneficiary(uint256 depositId, address newBeneficiary) external {
         Deposit storage d = deposits[depositId];
 
         if (d.depositor == address(0)) {
             revert DepositNotFound(depositId);
         }
-        if (msg.sender != d.currentBeneficiary) {
-            revert NotBeneficiary(msg.sender, d.currentBeneficiary);
+
+        bool isBeneficiary = (msg.sender == d.currentBeneficiary);
+        bool isOperator = (settlementOperator != address(0) && msg.sender == settlementOperator);
+
+        if (!isBeneficiary && !isOperator) {
+            revert NotAuthorizedToUpdateBeneficiary();
         }
         if (newBeneficiary == address(0)) {
             revert ZeroAddress();
+        }
+        if (d.withdrawn) {
+            revert AlreadyWithdrawn(depositId);
         }
 
         address oldBeneficiary = d.currentBeneficiary;
