@@ -1,0 +1,9 @@
+[Unit]
+Description=SOST Alpha Position Export
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/sost/SOST/sost-gold-exchange-private
+ExecStart=/usr/bin/python3 scripts/export_positions_json.py --output /opt/sost/website/api/positions_live.json
