@@ -45,12 +45,15 @@ class PositionSettlement:
             return False
 
         buyer = deal.taker_sost_addr
+        buyer_eth = getattr(deal, "taker_eth_addr", "")
 
         # Determine transfer type
         if pos.right_type == RightType.FULL_POSITION:
-            result = self.transfer.transfer(position_id, buyer, deal.deal_id)
+            result = self.transfer.transfer(position_id, buyer, deal.deal_id,
+                                            eth_beneficiary=buyer_eth)
         elif pos.right_type == RightType.REWARD_RIGHT:
-            result = self.transfer.transfer(position_id, buyer, deal.deal_id)
+            result = self.transfer.transfer(position_id, buyer, deal.deal_id,
+                                            eth_beneficiary=buyer_eth)
         else:
             result = TransferResult(False, position_id, "unsupported right type")
 
@@ -76,6 +79,7 @@ class PositionSettlement:
             return False
 
         buyer = deal.taker_sost_addr
+        # Reward split: only reward_owner changes, principal_owner and eth_beneficiary stay
         result = self.transfer.split_reward_right(parent_position_id, buyer, deal.deal_id)
 
         if not result.success:

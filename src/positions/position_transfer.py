@@ -41,7 +41,8 @@ class PositionTransferEngine:
         return True, "ok"
 
     def transfer(self, position_id: str, new_owner: str,
-                 deal_id: Optional[str] = None) -> TransferResult:
+                 deal_id: Optional[str] = None,
+                 eth_beneficiary: str = "") -> TransferResult:
         pos = self.registry.get(position_id)
         if not pos:
             return TransferResult(False, position_id, "position not found")
@@ -52,6 +53,10 @@ class PositionTransferEngine:
 
         old_owner = pos.owner
         pos.owner = new_owner
+        pos.principal_owner = new_owner
+        pos.reward_owner = new_owner
+        if eth_beneficiary:
+            pos.eth_beneficiary = eth_beneficiary
         pos.updated_at = time.time()
         pos.record_event("transferred", f"from={old_owner} to={new_owner} deal={deal_id or 'direct'}")
         log.info("Position %s transferred: %s → %s", position_id, old_owner, new_owner)
@@ -84,13 +89,29 @@ class PositionTransferEngine:
             transferable=True,
             right_type=RightType.REWARD_RIGHT,
             parent_position_id=position_id,
+            reward_owner=buyer,
         )
         child.record_event("created_from_split", f"parent={position_id} deal={deal_id or 'direct'}")
 
-        # Zero out parent rewards (transferred to child)
+        # Update parent: only reward_owner changes, principal_owner stays
+        parent.reward_owner = buyer
         parent.reward_total_sost = parent.reward_claimed_sost
         parent.record_event("reward_right_split", f"child={child.position_id} buyer={buyer}")
 
         self.registry._positions[child.position_id] = child
         log.info("Reward right split: parent=%s child=%s buyer=%s", position_id, child.position_id, buyer)
         return TransferResult(True, child.position_id, "reward_right_created")
+
+    def update_eth_beneficiary(self, position_id: str, new_beneficiary: str) -> TransferResult:
+        """Update the ETH beneficiary address for a position."""
+        pos = self.registry.get(position_id)
+        if not pos:
+            return TransferResult(False, position_id, "position not found")
+        if not pos.is_active():
+            return TransferResult(False, position_id, "position not active")
+        old = pos.eth_beneficiary
+        pos.eth_beneficiary = new_beneficiary
+        pos.updated_at = time.time()
+        pos.record_event("eth_beneficiary_updated", f"old={old} new={new_beneficiary}")
+        log.info("Position %s eth_beneficiary updated: %s → %s", position_id, old, new_beneficiary)
+        return TransferResult(True, position_id, "eth_beneficiary_updated")

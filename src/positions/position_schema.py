@@ -38,6 +38,16 @@ class PositionStatus(Enum):
     EXPIRED = "EXPIRED"
 
 
+class LifecycleStatus(Enum):
+    ACTIVE = "ACTIVE"
+    NEARING_MATURITY = "NEARING_MATURITY"
+    MATURED = "MATURED"
+    WITHDRAW_PENDING = "WITHDRAW_PENDING"
+    WITHDRAWN = "WITHDRAWN"
+    REWARD_SETTLED = "REWARD_SETTLED"
+    CLOSED = "CLOSED"
+
+
 class RightType(Enum):
     FULL_POSITION = "FULL_POSITION"
     REWARD_RIGHT = "REWARD_RIGHT"
@@ -65,14 +75,35 @@ class Position:
     eth_escrow_deposit_id: Optional[int] = None
     eth_escrow_tx: Optional[str] = None
     backing_proof_hash: Optional[str] = None  # hash of latest PoPC proof
+    principal_owner: str = ""                  # defaults to owner for backward compat
+    reward_owner: str = ""                     # defaults to owner
+    eth_beneficiary: str = ""                  # ETH address for principal payout
+    auto_withdraw: bool = True
+    withdraw_tx: Optional[str] = None
+    reward_settled: bool = False
+    lifecycle_status: str = "ACTIVE"           # ACTIVE/NEARING_MATURITY/MATURED/WITHDRAW_PENDING/WITHDRAWN/REWARD_SETTLED/CLOSED
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     history: list = field(default_factory=list)
+
+    def __post_init__(self):
+        """Set principal_owner and reward_owner to owner if not explicitly set."""
+        if not self.principal_owner:
+            self.principal_owner = self.owner
+        if not self.reward_owner:
+            self.reward_owner = self.owner
 
     @staticmethod
     def generate_id(owner: str, timestamp: float) -> str:
         raw = f"pos:{owner}:{timestamp}".encode()
         return hashlib.sha256(raw).hexdigest()[:16]
+
+    def sync_owners(self):
+        """Migration helper: set principal_owner and reward_owner to owner if empty."""
+        if not self.principal_owner:
+            self.principal_owner = self.owner
+        if not self.reward_owner:
+            self.reward_owner = self.owner
 
     def is_active(self) -> bool:
         return self.status == PositionStatus.ACTIVE
