@@ -14,7 +14,7 @@ import hashlib
 import json
 from enum import Enum
 from dataclasses import dataclass, field, asdict
-from typing import Optional
+from typing import Optional, ClassVar
 
 
 class DealState(Enum):
@@ -48,6 +48,12 @@ VALID_TRANSITIONS = {
 
 @dataclass
 class Deal:
+    # Trading fee: currently 0%. Infrastructure ready for future activation.
+    # Fee is deducted from the SOST side of the trade at settlement.
+    # Goes to TRADING_FEE_ADDRESS (same as PoPC protocol fees).
+    TRADING_FEE_RATE: ClassVar[float] = 0.0  # 0% — no trading fee
+    TRADING_FEE_ADDRESS: ClassVar[str] = "sost1059d1ef8639bcf47ec35e9299c17dc0452c3df33"
+
     deal_id: str
     pair: str  # "SOST/XAUT" or "SOST/PAXG"
     side: str  # "buy" or "sell" (from maker perspective)
@@ -66,6 +72,7 @@ class Deal:
     sost_lock_txid: Optional[str] = None
     settlement_tx_hash: Optional[str] = None
     refund_reason: Optional[str] = None
+    trading_fee: int = 0  # calculated at settlement (satoshis)
     history: list = field(default_factory=list)
 
     def __post_init__(self):
@@ -90,6 +97,23 @@ class Deal:
             "timestamp": self.updated_at,
         })
         return True
+
+    def calculate_trading_fee(self) -> int:
+        """Calculate trading fee in satoshis. Currently 0%.
+        Infrastructure ready: when TRADING_FEE_RATE > 0, fee is deducted
+        from amount_sost at settlement and sent to TRADING_FEE_ADDRESS.
+        """
+        fee = int(self.amount_sost * Deal.TRADING_FEE_RATE)
+        self.trading_fee = fee
+        return fee
+
+    def settle(self, settlement_tx: str = "") -> bool:
+        """Transition to SETTLED, calculating trading fee."""
+        self.calculate_trading_fee()
+        ok = self.transition(DealState.SETTLED, f"settled fee={self.trading_fee}")
+        if ok:
+            self.settlement_tx_hash = settlement_tx
+        return ok
 
     def is_terminal(self) -> bool:
         return self.state in {DealState.SETTLED, DealState.REFUNDED, DealState.EXPIRED}
